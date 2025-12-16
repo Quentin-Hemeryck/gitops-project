@@ -1,4 +1,4 @@
-name: CI - Build, Push, Update GitOps
+name: CI - Build, Push, Update GitOps (DEBUG)
 
 on:
   push:
@@ -8,30 +8,48 @@ jobs:
   build-push-and-update-manifest:
     runs-on: ubuntu-latest
 
+    # Permet au bot GitHub de commit les changements dans le repo
     permissions:
       contents: write
       packages: write
 
     steps:
-      - uses: actions/checkout@v4
+      # 1️⃣ Récupération du code
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
+      # 2️⃣ DEBUG - Afficher le username Docker Hub (masqué si secret)
+      - name: DEBUG - Docker Hub username
+        run: |
+          echo "DOCKERHUB_USERNAME='${{ secrets.DOCKERHUB_USERNAME }}'"
+          echo "Expected image name:"
+          echo "${{ secrets.DOCKERHUB_USERNAME }}/mon-flask-app:${{ github.sha }}"
+
+      # 3️⃣ Connexion à Docker Hub
       - name: Login to Docker Hub
         uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
+      # 4️⃣ Build & push de l'image Docker
       - name: Build and push image (tag = commit SHA)
         uses: docker/build-push-action@v6
         with:
           context: .
           push: true
-          tags: ${{ secrets.DOCKERHUB_USERNAME }}/mon-flask-app:${{ github.sha }}
+          tags: |
+            ${{ secrets.DOCKERHUB_USERNAME }}/mon-flask-app:${{ github.sha }}
 
+      # 5️⃣ Mise à jour du manifest Kubernetes avec le nouveau tag
       - name: Update Kubernetes manifest with new tag
         run: |
+          echo "Updating deployment.yml with new image tag..."
           sed -i "s|image: .*mon-flask-app:.*|image: ${{ secrets.DOCKERHUB_USERNAME }}/mon-flask-app:${{ github.sha }}|g" k8s/deployment.yml
+          echo "Updated file content:"
+          cat k8s/deployment.yml
 
+      # 6️⃣ Commit et push du manifest mis à jour
       - name: Commit and push manifest update
         run: |
           git config user.name "github-actions[bot]"
