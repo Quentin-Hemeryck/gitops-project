@@ -8,7 +8,6 @@ jobs:
   build-push-and-update-manifest:
     runs-on: ubuntu-latest
 
-    # IMPORTANT: permet au bot de push le changement du deployment.yaml dans le repo
     permissions:
       contents: write
       packages: write
