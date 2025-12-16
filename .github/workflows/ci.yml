@@ -8,7 +8,7 @@ jobs:
   build-push-and-update-manifest:
     runs-on: ubuntu-latest
 
-    # Permet au bot GitHub de commit les changements dans le repo
+    # Permet au bot GitHub de commit les changements
     permissions:
       contents: write
       packages: write
