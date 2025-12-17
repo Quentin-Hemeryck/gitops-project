@@ -2,7 +2,7 @@ name: CI - Build, Push, Update GitOps
 
 on:
   push:
-    branches: [ "Master" ]
+    branches: [ "main" ]
   workflow_dispatch:
 
 jobs:
@@ -28,11 +28,11 @@ jobs:
         with:
           context: .
           push: true
-          tags: ${{ secrets.DOCKERHUB_USERNAME }}/heh-flask:${{ github.sha }}
+          tags: ${{ secrets.DOCKERHUB_USERNAME }}/mon-flask-app:${{ github.sha }}
           
       - name: Update Kubernetes manifest with new tag
         run: |
-          sed -i "s|image: ${{ secrets.DOCKERHUB_USERNAME }}/heh-flask:.*|image: ${{ secrets.DOCKERHUB_USERNAME }}/heh-flask:${{ github.sha }}|g" k8s/deployment.yml
+          sed -i "s|image: ${{ secrets.DOCKERHUB_USERNAME }}/mon-flask-app:.*|image: ${{ secrets.DOCKERHUB_USERNAME }}/mon-flask-app:${{ github.sha }}|g" k8s/deployment.yml
 
 
       - name: Commit and push manifest update
