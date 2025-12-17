@@ -25,7 +25,7 @@ jobs:
           echo "Expected image name:"
           echo "${{ secrets.DOCKERHUB_USERNAME }}/mon-flask-app:${{ github.sha }}"
 
-      # 3️⃣ Connexion à Docker hub
+      # 3️⃣ Connexion à Docker Hub
       - name: Login to Docker Hub
         uses: docker/login-action@v3
         with:
