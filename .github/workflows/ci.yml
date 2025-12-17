@@ -1,40 +1,55 @@
-name: CI - Build, Push, Update GitOps
+name: CI - Build, Push, Update GitOps (DEBUG)
 
 on:
   push:
     branches: [ "main" ]
-  workflow_dispatch:
 
 jobs:
   build-push-and-update-manifest:
     runs-on: ubuntu-latest
 
-    # IMPORTANT: permet au bot de push le changement du deployment.yaml
+    # Permet au bot GitHub de commit les changements
     permissions:
       contents: write
       packages: write
 
     steps:
-      - uses: actions/checkout@v4
+      # 1️⃣ Récupération du code
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
+      # 2️⃣ DEBUG - Afficher le username Docker Hub (masqué si secret)
+      - name: DEBUG - Docker Hub username
+        run: |
+          echo "DOCKERHUB_USERNAME='${{ secrets.DOCKERHUB_USERNAME }}'"
+          echo "Expected image name:"
+          echo "${{ secrets.DOCKERHUB_USERNAME }}/mon-flask-app:${{ github.sha }}"
+
+      # 3️⃣ Connexion à Docker Hub
       - name: Login to Docker Hub
         uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
+      # 4️⃣ Build & push de l'image Docker
       - name: Build and push image (tag = commit SHA)
         uses: docker/build-push-action@v6
         with:
           context: .
           push: true
-          tags: ${{ secrets.DOCKERHUB_USERNAME }}/mon-flask-app:${{ github.sha }}
-          
+          tags: |
+            ${{ secrets.DOCKERHUB_USERNAME }}/mon-flask-app:${{ github.sha }}
+
+      # 5️⃣ Mise à jour du manifest Kubernetes avec le nouveau tag
       - name: Update Kubernetes manifest with new tag
         run: |
-          sed -i "s|image: ${{ secrets.DOCKERHUB_USERNAME }}/mon-flask-app:.*|image: ${{ secrets.DOCKERHUB_USERNAME }}/mon-flask-app:${{ github.sha }}|g" k8s/deployment.yml
+          echo "Updating deployment.yml with new image tag..."
+          sed -i "s|image: .*mon-flask-app:.*|image: ${{ secrets.DOCKERHUB_USERNAME }}/mon-flask-app:${{ github.sha }}|g" k8s/deployment.yml
+          echo "Updated file content:"
+          cat k8s/deployment.yml
 
-
+      # 6️⃣ Commit et push du manifest mis à jour
       - name: Commit and push manifest update
         run: |
           git config user.name "github-actions[bot]"
@@ -42,52 +57,3 @@ jobs:
           git add k8s/deployment.yml
           git commit -m "chore: bump image tag to ${{ github.sha }}" || exit 0
           git push
-
-  terraform:
-    name: 'Terraform'
-    runs-on: ubuntu-latest
-    needs: build-push-and-update-manifest
-    defaults:
-      run:
-        working-directory: ./terraform
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v3
-
-      - name: Configure AWS Credentials
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
-          aws-region: us-east-1
-
-      - name: Ensure Terraform State Bucket Exists
-        run: |
-          BUCKET_NAME="terraform-state-projet-action-shiroiryu753"
-          REGION="us-east-1"
-          if ! aws s3api head-bucket --bucket "$BUCKET_NAME" 2>/dev/null; then
-            echo "Bucket $BUCKET_NAME does not exist. Creating..."
-            if [ "$REGION" == "us-east-1" ]; then
-              aws s3api create-bucket --bucket "$BUCKET_NAME" --region "$REGION"
-            else
-              aws s3api create-bucket --bucket "$BUCKET_NAME" --region "$REGION" --create-bucket-configuration LocationConstraint="$REGION"
-            fi
-            echo "Bucket created."
-          else
-            echo "Bucket $BUCKET_NAME already exists."
-          fi
-
-      - name: Terraform Init
-        run: terraform init
-
-      - name: Terraform Plan
-        run: terraform plan -input=false
-
-      - name: Terraform Apply
-        if: github.ref == 'refs/heads/Master' && github.event_name == 'push'
-        run: terraform apply -auto-approve -input=false
