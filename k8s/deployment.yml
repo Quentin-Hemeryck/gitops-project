@@ -16,5 +16,5 @@ spec:
     spec:
       containers:
         - name: mon-flask-app
-          image: quentinhemeryck/mon-flask-app:579ca94378a789d940963ecaf3cd1b19feb613e9
+          image: quentinhemeryck/mon-flask-app:e2ad725226df403a94f6ddd523e48d74d3a9b7aa
           imagePullPolicy: IfNotPresent
